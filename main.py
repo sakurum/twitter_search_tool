@@ -16,8 +16,8 @@ try:
 except Exception:
     raise
 
+    
 class TwitterAPI:
-
     def __init__(self, search_word, filename):
         # 変数の用意
         self._filename = filename
@@ -115,5 +115,6 @@ def main():
     twitter_api = TwitterAPI(search_word, filename)
     twitter_api.get_tweet()
 
+    
 if __name__ == "__main__":
     main()
