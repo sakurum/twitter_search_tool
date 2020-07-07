@@ -27,12 +27,15 @@ class TwitterAPI:
         self._RATE_LIMIT_CNT_MAX = 6
 
         # 保存ファイルが既にあれば読み込み
-        if os.path.isfile(self._filename):
-            with open("tweets_data/{}".format(self._filename), "r") as fp:
+        if os.path.isfile("tweets_data/{}.json".format(self._filename)):
+            print("Loading {}.json ...".format(self._filename), end="")
+            with open("tweets_data/{}.json".format(self._filename), "r") as fp:
                 self._tweets = json.load(fp)
 
                 # 保存ファイルの中の最新のtweetのidをsince_idにする
                 self._since_id = self._tweets[0]["id"]
+
+            print("Done")
 
         # apiためのセットアップ
         self._twitter_api = OAuth1Session(AK, AKS, AT, ATS)
@@ -74,8 +77,8 @@ class TwitterAPI:
                 # 収集したうちで最も小さいid-1を、次の収集のmax_idにする
                 self._params["max_id"] = resp_body["statuses"][-1]["id"] - 1
 
-                # 収集したツイート分を追加（max_idの降順にするので先頭に追加）
-                self._tweets[0:0] = resp_body["statuses"]
+                # 収集したツイート分を追加（max_idの降順にするように追加）
+                self._tweets[self._tweet_cnt:0] = resp_body["statuses"]
 
             # レートリミット超過時
             elif response.status_code == 429:
@@ -87,10 +90,10 @@ class TwitterAPI:
 
                 self._rate_limit_cnt += 1
 
-                # 5分待つ（あまり良くない(?)対処なので注意）
+                # 3分待つ（あまり良くない(?)対処なので注意）
                 # twitter_apiでは、rate_limitは15分で更新
                 print("Waiting for rate limit reset...")
-                wait_time = 60*5
+                wait_time = 60*3
                 for i in range(1, wait_time+1):
                     print("\r{0} / {1}[sec]".format(i, wait_time), end="")
                     time.sleep(1)
@@ -108,8 +111,8 @@ class TwitterAPI:
 
 
 def main():
-    search_word = "辻野あかり"
-    filename = "tujinoakari"
+    search_word = "水樹奈々"
+    filename = "mizukinana"
 
     twitter_api = TwitterAPI(search_word, filename)
     twitter_api.get_tweet()
