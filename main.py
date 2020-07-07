@@ -1,12 +1,11 @@
 # coding: utf-8
 
-import config
 import os
 import json
 import time
-
 from requests_oauthlib import OAuth1Session
 
+import config
 
 try:
     AK  = config.API_KEY
