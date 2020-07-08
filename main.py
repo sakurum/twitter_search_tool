@@ -6,6 +6,7 @@ import time
 from requests_oauthlib import OAuth1Session
 
 import config
+import search_config
 
 try:
     AK  = config.API_KEY
@@ -15,7 +16,12 @@ try:
 except Exception:
     raise
 
-    
+try:
+    search_list = search_config.search_list
+except Exception:
+    raise
+
+
 class TwitterAPI:
     def __init__(self, search_word, filename):
         # 変数の用意
@@ -32,14 +38,20 @@ class TwitterAPI:
             with open("tweets_data/{}.json".format(self._filename), "r") as fp:
                 self._tweets = json.load(fp)
 
+                # 一応ソートする
+                self._tweets.sort(reverse=True, key=lambda x:x["id"])
+
                 # 保存ファイルの中の最新のtweetのidをsince_idにする
                 self._since_id = self._tweets[0]["id"]
 
             print("Done")
+        else:
+            print("Make {}.json".format(self._filename))
 
         # apiためのセットアップ
         self._twitter_api = OAuth1Session(AK, AKS, AT, ATS)
         self._url = "https://api.twitter.com/1.1/search/tweets.json"
+        self._rate_limit_url = "https://api.twitter.com/1.1/application/rate_limit_status.json "
         self._params = {
             "q": search_word,
             "count": 100,
@@ -53,6 +65,12 @@ class TwitterAPI:
 
     def _get_response(self):
         return self._twitter_api.get(self._url, params=self._params)
+
+
+    def _get_rate_limit_status(self):
+        params = {
+            "resources": resource_family
+        }
 
 
     def get_tweet(self):
@@ -105,18 +123,21 @@ class TwitterAPI:
                 print(response)
                 break
 
+        # 一応ソートする
+        self._tweets.sort(reverse=True, key=lambda x:x["id"])
+
         # 収集が完了したら
         with open("tweets_data/{}.json".format(self._filename), "w") as fp:
             json.dump(self._tweets, fp, indent=4, ensure_ascii=False)
 
 
 def main():
-    search_word = "水樹奈々"
-    filename = "mizukinana"
+    for search in search_list:
+        twitter_api = TwitterAPI(
+            search_word=search["search_word"],
+            filename=search["filename"]
+        )
+        twitter_api.get_tweet()
 
-    twitter_api = TwitterAPI(search_word, filename)
-    twitter_api.get_tweet()
-
-    
 if __name__ == "__main__":
     main()
