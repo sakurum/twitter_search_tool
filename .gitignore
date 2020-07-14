@@ -1,7 +1,7 @@
 .DS_Store
 .vscode
 __pycache__
-config.py
+api_config.py
 
 tweets_data/*
 !.gitkeep
