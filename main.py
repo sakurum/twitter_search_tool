@@ -47,6 +47,8 @@ class Mongo:
 
 class TwitterAPI:
     def __init__(self, search_word, collection_name):
+        print('Collect "{}"'.format(collection_name))
+
         # 変数の用意
         self._collection_name = collection_name
         self._tweet_cnt = 0
