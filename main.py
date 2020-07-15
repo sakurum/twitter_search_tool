@@ -1,13 +1,23 @@
 # coding: utf-8
 
+import argparse
 import os
 import json
 import time
 from requests_oauthlib import OAuth1Session
+from pymongo import MongoClient
 
 import api_config
 import search_config
 
+
+# コマンドライン引数の設定
+parser = argparse.ArgumentParser()
+parser.add_argument("--firsttime", action="store_true", help="初回実行時（DBがないとき）につける")
+parser.add_argument("--sinseid", type=int, default=0, help="sinse idを指定する")
+args = parser.parse_args()
+
+# APIトークンの読み込み
 try:
     AK  = api_config.API_KEY
     AKS = api_config.API_KEY_SECRET
@@ -22,29 +32,32 @@ except Exception:
     raise
 
 
+class Mongo:
+    def __init__(self, db_name, collection_name):
+        self.client = MongoClient()
+        self.db = self.client[db_name]
+        self.collection = self.db[collection_name]
+
+    def insert_many(self, documents):
+        return self.collection.insert_many(documents)
+
+    def get_max_id(self):
+        return self.collection.find_one(projection={"_id":0, "id": 1}, sort=[("id", -1)])
+
+
 class TwitterAPI:
-    def __init__(self, search_word, filename):
+    def __init__(self, search_word, collection_name):
         # 変数の用意
-        self._filename = filename
+        self._collection_name = collection_name
         self._tweet_cnt = 0
         self._tweets = []
-        self._since_id = 0
+        self._since_id = args.sinseid
 
-        # 保存ファイルが既にあれば読み込み
-        if os.path.isfile("tweets_data/{}.json".format(self._filename)):
-            print("Loading {}.json ...".format(self._filename))
-            with open("tweets_data/{}.json".format(self._filename), "r") as fp:
-                self._tweets = json.load(fp)
-
-            # 一応ソートする
-            self._tweets.sort(reverse=True, key=lambda x:x["id"])
-
-            # 保存ファイルの中の最新のtweetのidをsince_idにする
-            self._since_id = self._tweets[0]["id"]
-
-            print("Done")
-        else:
-            print("Make {}.json".format(self._filename))
+        # DBの接続
+        self._mongo = Mongo(db_name="tweets_data", collection_name=collection_name)
+        # idの最大値を取得
+        if not args.firsttime:
+            self._since_id = self._mongo.get_max_id()["id"]
 
         # apiためのセットアップ
         self._twitter_api = OAuth1Session(AK, AKS, AT, ATS)
@@ -124,12 +137,9 @@ class TwitterAPI:
                 self._remaining = status["remaining"]
 
 
-        # 一応ソートする
-        self._tweets.sort(reverse=True, key=lambda x:x["id"])
-
-        # 収集が完了したら
-        with open("tweets_data/{}.json".format(self._filename), "w") as fp:
-            json.dump(self._tweets, fp, indent=4, ensure_ascii=False)
+        # 収集が完了して、0件でなかったら保存
+        if self._tweets:
+            self._mongo.insert_many(self._tweets)
 
         print("--FINISH--")
 
@@ -138,12 +148,12 @@ def main():
     for search in search_list:
         twitter_api = TwitterAPI(
             search_word=search["search_word"],
-            filename=search["filename"]
+            collection_name=search["filename"]
         )
         twitter_api.get_tweet()
 
 def test():
-    ta = TwitterAPI(search_word="辻野あかり", filename="tujinoakari")
+    ta = TwitterAPI(search_word="辻野あかり", collection_name="tujinoakari")
     ta.get_tweet()
 
 if __name__ == "__main__":
