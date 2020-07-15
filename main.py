@@ -44,6 +44,9 @@ class Mongo:
     def get_max_id(self):
         return self.collection.find_one(projection={"_id":0, "id": 1}, sort=[("id", -1)])
 
+    def __del__(self):
+        self.client.close()
+
 
 class TwitterAPI:
     def __init__(self, search_word, collection_name):
