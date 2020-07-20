@@ -62,7 +62,10 @@ class TwitterAPI:
         self._mongo = Mongo(db_name="tweets_data", collection_name=collection_name)
         # idの最大値を取得
         if not args.firsttime:
-            self._since_id = self._mongo.get_max_id()["id"]
+            try:
+                self._since_id = self._mongo.get_max_id()["id"]
+            except Exception:
+                pass
 
         # apiためのセットアップ
         self._twitter_api = OAuth1Session(AK, AKS, AT, ATS)
