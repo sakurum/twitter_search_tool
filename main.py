@@ -55,7 +55,6 @@ class TwitterAPI:
         # 変数の用意
         self._collection_name = collection_name
         self._tweet_cnt = 0
-        self._tweets = []
         self._since_id = args.sinseid
 
         # DBの接続
@@ -120,8 +119,8 @@ class TwitterAPI:
                     # 収集したうちで最も小さいid-1を、次の収集のmax_idにする
                     self._params["max_id"] = resp_body["statuses"][-1]["id"] - 1
 
-                    # 収集したツイート分を追加（max_idの降順にするように追加）
-                    self._tweets[self._tweet_cnt:0] = resp_body["statuses"]
+                    # 収集したツイートをDBに追加
+                    self._mongo.insert_many(resp_body["statuses"])
 
                 # 異常終了
                 else:
@@ -143,11 +142,6 @@ class TwitterAPI:
 
                 status = self._get_rate_limit_status()
                 self._remaining = status["remaining"]
-
-
-        # 収集が完了して、0件でなかったら保存
-        if self._tweets:
-            self._mongo.insert_many(self._tweets)
 
         print("--FINISH--")
 
