@@ -146,7 +146,7 @@ def main():
         twitter_api = TwitterAPI(
             query=place["query"],
             geocode="{},{},{}".format(place["latitude"], place["longitude"], place["range"]),
-            collection_name="{}_R{}".format(place["name"], place["range"])
+            collection_name="{}_r{}".format(place["name"], place["range"])
         )
         twitter_api.get_tweet()
 
