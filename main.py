@@ -55,8 +55,8 @@ class TwitterAPI:
         if os.path.exists(self._sentinel_path):
             with open(self._sentinel_path, "rb") as f:
                 sentinel = pickle.load(f)
-                self._params["since_id"] = sentinel["next_since_id"]
-                self._params["max_id"] = sentinel["next_max_id"]
+                self._params["since_id"] = sentinel.get("next_since_id", None)
+                self._params["max_id"] = sentinel.get("next_max_id", None)
         else:
             self._since_id = self._db.get_max_id()
 
@@ -94,6 +94,7 @@ class TwitterAPI:
                     # 収集結果が0件だったら終了
                     if resp_cnt == 0:
                         self._params["since_id"] = self._db.get_max_id()
+                        self._params["max_id"] = None
                         break
 
                     self._tweet_cnt += resp_cnt
