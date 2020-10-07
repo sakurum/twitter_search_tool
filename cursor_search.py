@@ -10,11 +10,9 @@ from pymongo import MongoClient
 import api_config
 import places
 
-
 # コマンドライン引数の設定
 parser = argparse.ArgumentParser()
-parser.add_argument("--firsttime", action="store_true", help="初回実行時（DBがないとき）につける")
-parser.add_argument("--sinseid", type=int, default=0, help="sinse idを指定する")
+parser.add_argument("--sinceid", type=int, default=0, help="sinse idを指定する")
 args = parser.parse_args()
 
 # APIトークンの読み込み
@@ -49,16 +47,12 @@ class TwitterAPI:
         # 変数の用意
         self._collection_name = collection_name
         self._tweet_cnt = 0
-        self._since_id = args.sinseid
 
         # DBの接続
         self._mongo = Mongo(db_name="tweets_place", collection_name=collection_name)
-        # idの最大値を取得
-        if not args.firsttime:
-            try:
-                self._since_id = self._mongo.get_max_id()["id"]
-            except Exception:
-                pass
+
+        # since_idを設定
+        self._since_id = self._mongo.get_max_id()["id"]
 
         # apiためのセットアップ
         self._twitter_api = OAuth1Session(AK, AKS, AT, ATS)
@@ -139,6 +133,16 @@ class TwitterAPI:
                 self._remaining = status["remaining"]
 
         print("--FINISH--")
+
+    def __del__(self):
+        print("del")
+        print("next_max_id: {}".format(self._params["max_id"]))
+        interrupt_log.interrupt_list.append({
+            "collection_name": self._collection_name,
+            "next_max_id": self._params["max_id"]
+        })
+
+
 
 
 def main():
