@@ -165,21 +165,5 @@ def main():
         api.get_tweet()
 
 
-def test():
-    api = TwitterAPI(
-        db_name="tweets_place",
-        collection_name="okinawa_r10km",
-        params={
-            "q": "四日市",
-            "count": 100,
-            "result_type": "recent",
-            "exclude": "retweets",
-            "lang": "ja",
-            "locale": "ja"
-        }
-    )
-    # api._db.get_created_at(api._db.get_last_id())
-
-
 if __name__ == "__main__":
     main()
