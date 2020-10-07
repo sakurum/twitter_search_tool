@@ -4,36 +4,34 @@
 
 [twitterのSearch API](https://developer.twitter.com/ja) を利用して、ツイートを収集します。
 
+ツイートの保存には[mongoDB](https://www.mongodb.com/)を使用します。
+
 ## Description
 
-Search APIでは、7日前までのツイートを、1回のリクエストあたり100件まで取得することができます。
-また、このAPIにはレートリミットが存在し、これは15分ごとに設定されています。
+### ツイートの収集について
+`search_params`に記述された`collection_name`と`params`を読み取り、ツイートを収集します。
+paramsの記載方法については、公式のリファレンス等をご確認ください。
 
-このスクリプトでは、ある単語に対して繰り返しSearch APIでの検索を行い、ツイートを収集します。
-APIから得られるのは、ツイートの時刻（"create_at"）で降順になったツイートのリストであり、リクエスト毎に得られたリストを連結して、json形式で保存します。
+プログラムを実行すると、その時刻から、APIで取得可能な7日前までのツイートを新しいものから順に取得します。
+APIのレートリミットの制限（180リクエスト/15分）に達すると、レートリミットがリセットされるまで待機します。
 
-収集中にレートリミットを超過した場合は、pythonのsleep関数で数分待機し、解除を待ってリトライします。
+収集が途中で終了された場合（強制終了を含む）、作業状態をpickleに保存します。
+プログラムの実行時にpickleに保存された作業状態があれば、自動的にそこから再開します。
+
+### APIについて
+twitterのAPIの接続のために、`api_config`の値を読み取ります。
+Twitter Developerアカウントより、access key, tokenを取得してください。
+
+**api_configはリポジトリに公開しないようご注意ください。**
 
 ## Usage
 
-このスクリプトを動作させるためには、このリポジトリをcloneした後に、ディレクトリ内に以下のような`config.py`の作成が必要です。
-`config.py`に記載するトークンは、Twitter Developerアカウントを作成した上で各自で取得してください。
+```bash
+# run
+pipenv shell
+python3 main.py
 
-このサイトが参考になります。:point_right: https://syncer.jp/Web/API/Twitter/REST_API/
-
-```python
-API_KEY = "XXXXXXXXXXXXXXXX"
-API_KEY_SECRET = "XXXXXXXXXXXXXXXXX"
-ACCESS_TOKEN = "XXXXXXXXXXXXXXXXXXX"
-ACCESS_TOKEN_SECRET = "XXXXXXXXXXXXXXXXXXXX"
-
-```
-
-`config.py`が作成できたら、ターミナルで`main.py`を実行してください。
-`tweets_data`ディレクトリに、収集したツイートがjson形式で保存されます。
-（数十MBを超えることがあり、エディタで開こうとするとかなり重い場合があるので注意してください。）
-
-```
-$ python3 main.py
+# exit shell
+exit
 ```
 
