@@ -29,16 +29,10 @@ class Mongo:
         return self.collection.insert_many(documents)
 
     def exists(self):
-        return bool(self.collection.find().limit(1).count()!=0)
+        return bool(self.collection.find().limit(1).count_documents()!=0)
 
     def get_max_id(self):
         return self.collection.find_one(projection={"_id":0, "id": 1}, sort=[("id", -1)])["id"]
-
-    def get_last_id(self):
-        return self.collection.find_one(projection={"_id":0, "id":1}, sort=[("_id", -1)])["id"]
-
-    def get_created_at(self, id):
-        return self.collection.find(filter={"id": id}, projection={"_id": 0, "created_at": 1})[0]["created_at"]
 
     def __del__(self):
         self.client.close()
@@ -106,7 +100,7 @@ class TwitterAPI:
                 # 正常終了時
                 if response.status_code == 200:
                     resp_body = json.loads(response.text)
-                    resp_cnt = resp_body["search_metadata"]["count"]
+                    resp_cnt = len(resp_body["statuses"])
 
                     # 収集結果が0件だったら終了
                     if resp_cnt == 0:
@@ -118,13 +112,12 @@ class TwitterAPI:
 
                     dt_head = self._to_datetime(resp_body['statuses'][0]['created_at'])
                     dt_tail = self._to_datetime(resp_body['statuses'][-1]['created_at'])
-                    print("\r status | {}, rate: {} [tweet/h], total: {} [tweet]".format(
-                        dt_tail.strftime('%b %d %a %H:%M:%S'),
-                        int(100/((dt_head-dt_tail).total_seconds()/3600)),
-                        self._tweet_cnt
-                    ), end="")
-                    # print(f"\r {dt_tail.strftime('%b %d %a %H:%M:%S')}, rate: {100/((dt_head-dt_tail).total_seconds()/3600)} [tweets/h], total: {self._tweet_cnt}", end="")
-                    # print("count:{0}, latest:{1}, total:{2} ".format(resp_cnt, resp_body["statuses"][0]["created_at"], self._tweet_cnt))
+                    if dt_head != dt_tail:
+                        print("\r status | {}, rate: {} [tweet/h], total: {} [tweet]".format(
+                            dt_tail.strftime('%b %d %a %H:%M:%S'),
+                            int(100/((dt_head-dt_tail).total_seconds()/3600)),
+                            self._tweet_cnt
+                        ), end="")
 
                     # 収集したうちで最も小さいid-1を、次の収集のmax_idにする
                     self._params["max_id"] = resp_body["statuses"][-1]["id"]
