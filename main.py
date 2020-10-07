@@ -1,69 +1,71 @@
 # coding: utf-8
 
-import os
-import json
 import time
+import json
+import os
+import pickle
 from requests_oauthlib import OAuth1Session
+from pymongo import MongoClient
 
+# 設定ファイル
 import api_config
-import search_config
 
-try:
-    AK  = api_config.API_KEY
-    AKS = api_config.API_KEY_SECRET
-    AT  = api_config.ACCESS_TOKEN
-    ATS = api_config.ACCESS_TOKEN_SECRET
-except Exception:
-    raise
+# APIトークンの読み込み
+AK  = api_config.API_KEY
+AKS = api_config.API_KEY_SECRET
+AT  = api_config.ACCESS_TOKEN
+ATS = api_config.ACCESS_TOKEN_SECRET
 
-try:
-    search_list = search_config.search_list
-except Exception:
-    raise
+
+class Mongo:
+    def __init__(self, db_name, collection_name):
+        self.client = MongoClient()
+        self.db = self.client[db_name]
+        self.collection = self.db[collection_name]
+
+    def insert_many(self, documents):
+        return self.collection.insert_many(documents)
+
+    def get_max_id(self):
+        return self.collection.find_one(projection={"_id":0, "id": 1}, sort=[("id", -1)])
+
+    def __del__(self):
+        self.client.close()
 
 
 class TwitterAPI:
-    def __init__(self, search_word, filename):
-        # 変数の用意
-        self._filename = filename
-        self._tweet_cnt = 0
-        self._tweets = []
-        self._since_id = 0
+    def __init__(
+        self, db_name, collection_name, params):
+        # DB接続
+        self._db_name = db_name
+        self._collection_name = collection_name
+        self._db = Mongo(
+            db_name=self._db_name,
+            collection_name=self._collection_name
+        )
 
-        # 保存ファイルが既にあれば読み込み
-        if os.path.isfile("tweets_data/{}.json".format(self._filename)):
-            print("Loading {}.json ...".format(self._filename))
-            with open("tweets_data/{}.json".format(self._filename), "r") as fp:
-                self._tweets = json.load(fp)
-
-            # 一応ソートする
-            self._tweets.sort(reverse=True, key=lambda x:x["id"])
-
-            # 保存ファイルの中の最新のtweetのidをsince_idにする
-            self._since_id = self._tweets[0]["id"]
-
-            print("Done")
-        else:
-            print("Make {}.json".format(self._filename))
-
-        # apiためのセットアップ
+        # apiのためのセットアップ
         self._twitter_api = OAuth1Session(AK, AKS, AT, ATS)
         self._SEARCH_URL = "https://api.twitter.com/1.1/search/tweets.json"
         self._RATE_LIMIT_STATUS_URL = "https://api.twitter.com/1.1/application/rate_limit_status.json"
-        self._params = {
-            "q": search_word,
-            "count": 100,
-            "result_type": "recent",
-            "exclude": "retweets",
-            "lang": "ja",
-            "locale": "ja",
-            "since_id": self._since_id
-        }
+        self._params = params
 
-        # rate limitのstatusの取得
+        # 変数の読み込み
+        self._sentinel_path = f"sentinels/{self._collection_name}.pkl"
+        if os.path.exists(self._sentinel_path):
+            with open(self._sentinel_path, "rb") as f:
+                sentinel = pickle.load(f)
+                self._params["since_id"] = sentinel["next_since_id"]
+                self._params["max_id"] = sentinel["next_max_id"]
+        else:
+            self._since_id = self._db.get_max_id()
+
+        # rate limit statusを取得
         status = self._get_rate_limit_status()
         self._LIMIT = status["limit"]
         self._remaining = status["remaining"]
+
+        self._tweet_cnt = 0
 
 
     def _get_response(self):
@@ -91,6 +93,7 @@ class TwitterAPI:
 
                     # 収集結果が0件だったら終了
                     if resp_cnt == 0:
+                        self._params["since_id"] = self._db.get_max_id()
                         break
 
                     self._tweet_cnt += resp_cnt
@@ -99,13 +102,11 @@ class TwitterAPI:
                     # 収集したうちで最も小さいid-1を、次の収集のmax_idにする
                     self._params["max_id"] = resp_body["statuses"][-1]["id"] - 1
 
-                    # 収集したツイート分を追加（max_idの降順にするように追加）
-                    self._tweets[self._tweet_cnt:0] = resp_body["statuses"]
+                    # 収集したツイートをDBに追加
+                    self._db.insert_many(resp_body["statuses"])
 
                 # 異常終了
                 else:
-                    print(response)
-                    print(json.loads(response.text))
                     break
 
             # rate limitに達したとき
@@ -123,29 +124,49 @@ class TwitterAPI:
                 status = self._get_rate_limit_status()
                 self._remaining = status["remaining"]
 
-
-        # 一応ソートする
-        self._tweets.sort(reverse=True, key=lambda x:x["id"])
-
-        # 収集が完了したら
-        with open("tweets_data/{}.json".format(self._filename), "w") as fp:
-            json.dump(self._tweets, fp, indent=4, ensure_ascii=False)
-
         print("--FINISH--")
 
 
+    def __del__(self):
+        with open(self._sentinel_path, "wb") as f:
+            pickle.dump({
+                    "next_since_id": self._params.get("since_id", None),
+                    "next_max_id": self._params.get("max_id", None)
+            }, f)
+
+
 def main():
-    for search in search_list:
-        twitter_api = TwitterAPI(
-            search_word=search["search_word"],
-            filename=search["filename"]
-        )
-        twitter_api.get_tweet()
+    import places
+    for place in places.search_places:
+        api = TwitterAPI(
+            db_name="tweets_place",
+            collection_name=f'{place["name"]}_r{place["range"]}',
+            params={
+                "q": place["query"],
+                "geocode": f'{place["latitude"]},{place["longitude"]},{place["range"]}',
+                "count": 100,
+                "result_type": "recent",
+                "exclude": "retweets",
+                "lang": "ja",
+                "locale": "ja"
+            })
+        api.get_tweet()
+
 
 def test():
-    ta = TwitterAPI(search_word="辻野あかり", filename="tujinoakari")
-    ta.get_tweet()
+    api = TwitterAPI(
+        db_name="tweets_place",
+        collection_name="test",
+        params={
+            "q": "四日市",
+            "count": 100,
+            "result_type": "recent",
+            "exclude": "retweets",
+            "lang": "ja",
+            "locale": "ja"
+        })
+    api.get_tweet()
+
 
 if __name__ == "__main__":
     main()
-    # test()
