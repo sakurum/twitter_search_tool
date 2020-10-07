@@ -1,5 +1,7 @@
 # coding: utf-8
 
+import tqdm
+import datetime
 import time
 import json
 import os
@@ -26,8 +28,17 @@ class Mongo:
     def insert_many(self, documents):
         return self.collection.insert_many(documents)
 
+    def exists(self):
+        return bool(self.collection.find().limit(1).count()!=0)
+
     def get_max_id(self):
-        return self.collection.find_one(projection={"_id":0, "id": 1}, sort=[("id", -1)])
+        return self.collection.find_one(projection={"_id":0, "id": 1}, sort=[("id", -1)])["id"]
+
+    def get_last_id(self):
+        return self.collection.find_one(projection={"_id":0, "id":1}, sort=[("_id", -1)])["id"]
+
+    def get_created_at(self, id):
+        return self.collection.find(filter={"id": id}, projection={"_id": 0, "created_at": 1})[0]["created_at"]
 
     def __del__(self):
         self.client.close()
@@ -55,10 +66,12 @@ class TwitterAPI:
         if os.path.exists(self._sentinel_path):
             with open(self._sentinel_path, "rb") as f:
                 sentinel = pickle.load(f)
-                self._params["since_id"] = sentinel.get("next_since_id", None)
-                self._params["max_id"] = sentinel.get("next_max_id", None)
+                self._params["since_id"] = sentinel["next_since_id"]
+                self._params["max_id"] = sentinel["next_max_id"]
+        elif self._db.exists():
+            self._params["since_id"] = self._db.get_max_id()
         else:
-            self._since_id = self._db.get_max_id()
+            self._params["since_id"] = 0
 
         # rate limit statusを取得
         status = self._get_rate_limit_status()
@@ -66,6 +79,10 @@ class TwitterAPI:
         self._remaining = status["remaining"]
 
         self._tweet_cnt = 0
+
+
+    def _to_datetime(self, str):
+        return datetime.datetime.strptime(str, '%a %b %d %H:%M:%S +0000 %Y')
 
 
     def _get_response(self):
@@ -89,7 +106,7 @@ class TwitterAPI:
                 # 正常終了時
                 if response.status_code == 200:
                     resp_body = json.loads(response.text)
-                    resp_cnt = len(resp_body["statuses"])
+                    resp_cnt = resp_body["search_metadata"]["count"]
 
                     # 収集結果が0件だったら終了
                     if resp_cnt == 0:
@@ -98,10 +115,19 @@ class TwitterAPI:
                         break
 
                     self._tweet_cnt += resp_cnt
-                    print("count:{0}, latest:{1}, total:{2} ".format(resp_cnt, resp_body["statuses"][0]["created_at"], self._tweet_cnt))
+
+                    dt_head = self._to_datetime(resp_body['statuses'][0]['created_at'])
+                    dt_tail = self._to_datetime(resp_body['statuses'][-1]['created_at'])
+                    print("\r status | {}, rate: {} [tweet/h], total: {} [tweet]".format(
+                        dt_tail.strftime('%b %d %a %H:%M:%S'),
+                        int(100/((dt_head-dt_tail).total_seconds()/3600)),
+                        self._tweet_cnt
+                    ), end="")
+                    # print(f"\r {dt_tail.strftime('%b %d %a %H:%M:%S')}, rate: {100/((dt_head-dt_tail).total_seconds()/3600)} [tweets/h], total: {self._tweet_cnt}", end="")
+                    # print("count:{0}, latest:{1}, total:{2} ".format(resp_cnt, resp_body["statuses"][0]["created_at"], self._tweet_cnt))
 
                     # 収集したうちで最も小さいid-1を、次の収集のmax_idにする
-                    self._params["max_id"] = resp_body["statuses"][-1]["id"] - 1
+                    self._params["max_id"] = resp_body["statuses"][-1]["id"]
 
                     # 収集したツイートをDBに追加
                     self._db.insert_many(resp_body["statuses"])
@@ -116,16 +142,16 @@ class TwitterAPI:
                 status = self._get_rate_limit_status()
                 wait_time = int(status["reset"] - time.time() + 1)
 
-                for i in range(1, wait_time+1):
-                    print("\rWaiting for rate limit reset: {0} / {1}[sec]".format(i, wait_time), end="")
+                pber = tqdm.tqdm(total=wait_time, leave=False)
+                pber.set_description("Wait for reset rate limit")
+                for i in range(wait_time):
                     time.sleep(1)
-
-                print("")
+                    pber.update(1)
 
                 status = self._get_rate_limit_status()
                 self._remaining = status["remaining"]
 
-        print("--FINISH--")
+        print("\n --FINISH--")
 
 
     def __del__(self):
@@ -149,7 +175,7 @@ def main():
 def test():
     api = TwitterAPI(
         db_name="tweets_place",
-        collection_name="test",
+        collection_name="okinawa_r10km",
         params={
             "q": "四日市",
             "count": 100,
@@ -157,8 +183,9 @@ def test():
             "exclude": "retweets",
             "lang": "ja",
             "locale": "ja"
-        })
-    api.get_tweet()
+        }
+    )
+    # api._db.get_created_at(api._db.get_last_id())
 
 
 if __name__ == "__main__":
