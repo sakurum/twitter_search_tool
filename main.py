@@ -136,20 +136,12 @@ class TwitterAPI:
 
 
 def main():
-    import places
-    for place in places.search_places:
+    import search_params
+    for item in search_params.search_params:
         api = TwitterAPI(
             db_name="tweets_place",
-            collection_name=f'{place["name"]}_r{place["range"]}',
-            params={
-                "q": place["query"],
-                "geocode": f'{place["latitude"]},{place["longitude"]},{place["range"]}',
-                "count": 100,
-                "result_type": "recent",
-                "exclude": "retweets",
-                "lang": "ja",
-                "locale": "ja"
-            })
+            collection_name=item["collection_name"],
+            params=item["params"])
         api.get_tweet()
 
 
