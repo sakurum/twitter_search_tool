@@ -140,11 +140,8 @@ class TwitterAPI:
                 status = self._get_rate_limit_status()
                 wait_time = int(status["reset"] - time.time() + 1)
 
-                pber = tqdm.tqdm(total=wait_time, leave=False)
-                pber.set_description("[WAITING]")
-                for i in range(wait_time):
+                for i in tqdm.tqdm(range(wait_time), unit="", leave=False, desc="[WAITING]"):
                     time.sleep(1)
-                    pber.update(1)
 
                 status = self._get_rate_limit_status()
                 self._remaining = status["remaining"]
