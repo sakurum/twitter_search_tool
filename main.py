@@ -13,6 +13,9 @@ from pymongo import MongoClient
 import api_config
 
 # APIトークンの読み込み
+if api_config.API_KEY == "":
+    print("[ERROR] API_KEY NOT FOUND!")
+    raise
 AK  = api_config.API_KEY
 AKS = api_config.API_KEY_SECRET
 AT  = api_config.ACCESS_TOKEN
