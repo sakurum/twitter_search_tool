@@ -29,7 +29,7 @@ class Mongo:
         return self.collection.insert_many(documents)
 
     def exists(self):
-        return bool(self.collection.find().limit(1).count_document()!=0)
+        return bool(self.collection.find().limit(1).count_documents()!=0)
 
     def get_max_id(self):
         return self.collection.find_one(projection={"_id":0, "id": 1}, sort=[("id", -1)])["id"]
