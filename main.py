@@ -29,7 +29,7 @@ class Mongo:
         return self.collection.insert_many(documents)
 
     def exists(self):
-        return bool(self.collection.find().limit(1).count_documents()!=0)
+        return bool(self.collection.find().limit(1).count_document()!=0)
 
     def get_max_id(self):
         return self.collection.find_one(projection={"_id":0, "id": 1}, sort=[("id", -1)])["id"]
@@ -116,7 +116,7 @@ class TwitterAPI:
                     dt_head = self._to_datetime(resp_body['statuses'][0]['created_at'])
                     dt_tail = self._to_datetime(resp_body['statuses'][-1]['created_at'])
                     if dt_head != dt_tail:
-                        print("\r [GET] {}, rate: {} [tweet/h], total: {} [tweet]".format(
+                        print("\r[GET] {}, rate: {} [tweet/h], total: {} [tweet]".format(
                             dt_tail.strftime('%b %d %a %H:%M:%S'),
                             int(100/((dt_head-dt_tail).total_seconds()/3600)),
                             self._tweet_cnt
