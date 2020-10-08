@@ -64,8 +64,10 @@ class TwitterAPI:
                 self._params["max_id"] = sentinel["next_max_id"]
         elif self._db.exists():
             self._params["since_id"] = self._db.get_max_id()
+            self._params["max_id"] = None
         else:
             self._params["since_id"] = 0
+            self._params["max_id"] = None
 
         # rate limit statusを取得
         status = self._get_rate_limit_status()
@@ -92,6 +94,7 @@ class TwitterAPI:
 
 
     def get_tweet(self):
+        print(f"[COLLECT] {self._collection_name} | id: {self._params['since_id']} ~ {self._params['max_id']}")
         while True:
             if self._remaining > 0:
                 response = self._get_response()
@@ -113,20 +116,22 @@ class TwitterAPI:
                     dt_head = self._to_datetime(resp_body['statuses'][0]['created_at'])
                     dt_tail = self._to_datetime(resp_body['statuses'][-1]['created_at'])
                     if dt_head != dt_tail:
-                        print("\r status | {}, rate: {} [tweet/h], total: {} [tweet]".format(
+                        print("\r [GET] {}, rate: {} [tweet/h], total: {} [tweet]".format(
                             dt_tail.strftime('%b %d %a %H:%M:%S'),
                             int(100/((dt_head-dt_tail).total_seconds()/3600)),
                             self._tweet_cnt
                         ), end="")
 
                     # 収集したうちで最も小さいid-1を、次の収集のmax_idにする
-                    self._params["max_id"] = resp_body["statuses"][-1]["id"]
+                    self._params["max_id"] = resp_body["statuses"][-1]["id"] - 1
 
                     # 収集したツイートをDBに追加
                     self._db.insert_many(resp_body["statuses"])
 
                 # 異常終了
                 else:
+                    print(response)
+                    print(response.text)
                     break
 
             # rate limitに達したとき
@@ -136,7 +141,7 @@ class TwitterAPI:
                 wait_time = int(status["reset"] - time.time() + 1)
 
                 pber = tqdm.tqdm(total=wait_time, leave=False)
-                pber.set_description("Wait for reset rate limit")
+                pber.set_description("[WAITING]")
                 for i in range(wait_time):
                     time.sleep(1)
                     pber.update(1)
