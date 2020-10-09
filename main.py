@@ -153,6 +153,7 @@ class TwitterAPI:
 
 
     def __del__(self):
+        print(f"[TERMINATE] next_since_id: {self._params.get('since_id', None)}, next_max_id: {self._params.get('max_id', None)}")
         with open(self._sentinel_path, "wb") as f:
             pickle.dump({
                     "next_since_id": self._params.get("since_id", None),
