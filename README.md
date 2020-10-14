@@ -19,8 +19,18 @@ APIのレートリミットの制限（180リクエスト/15分）に達する�
 プログラムの実行時にpickleに保存された作業状態があれば、自動的にそこから再開します。
 
 ### APIについて
-twitterのAPIの接続のために、`api_config`の値を読み取ります。
-Twitter Developerアカウントより、access key, tokenを取得してください。
+twitterのAPIの接続のために、`api_config.py`の値を読み取ります。
+Twitter Developerアカウントより、access key, tokenを取得して、`api_config.py`を作成してください。
+
+
+```python:api_config.py
+# your api keys and tokens
+API_KEY = ""
+API_KEY_SECRET = ""
+ACCESS_TOKEN = ""
+ACCESS_TOKEN_SECRET = ""
+```
+
 
 **api_configはリポジトリに公開しないようご注意ください。**
 
