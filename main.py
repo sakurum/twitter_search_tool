@@ -137,8 +137,9 @@ class TwitterAPI:
                         dt_head = self._to_datetime(resp_body['statuses'][0]['created_at'])
                         dt_tail = self._to_datetime(resp_body['statuses'][-1]['created_at'])
                         if dt_head != dt_tail:
-                            print("\r[GET] {}, rate: {} [tweet/h], total: {} [tweet]".format(
+                            print("\r[GET] {}, remain: {}[tweet], rate: {} [tweet/h], total: {} [tweet]".format(
                                 dt_tail.strftime('%b %d %a %H:%M:%S'),
+                                resp_body['statuses'][-1]['id']-self._params["since_id"],
                                 int(100/((dt_head-dt_tail).total_seconds()/3600)),
                                 self._tweet_cnt
                             ), end="")
