@@ -105,6 +105,14 @@ class TwitterAPI:
             }, f)
 
 
+    def set_since_id(self, since_id):
+        self._params["since_id"] = since_id
+
+
+    def set_max_id(self, max_id):
+        self._params["max_id"] = max_id
+
+
     def get_tweet(self):
         print(f"[COLLECT] {self._collection_name} | id: {self._params['since_id']} ~ {self._params['max_id']}")
         try:
@@ -180,6 +188,13 @@ def main():
             db_name="tweets_place",
             collection_name=item["collection_name"],
             params=item["params"])
+
+        if "since_id" in item:
+            api.set_since_id(item["since_id"])
+
+        if "max_id" in item:
+            api.set_max_id(item["max_id"])
+
         api.get_tweet()
 
 
