@@ -96,69 +96,81 @@ class TwitterAPI:
         return json.loads(response.text)["resources"]["search"]["/search/tweets"]
 
 
-    def get_tweet(self):
-        print(f"[COLLECT] {self._collection_name} | id: {self._params['since_id']} ~ {self._params['max_id']}")
-        while True:
-            if self._remaining > 0:
-                response = self._get_response()
-                self._remaining -= 1
-
-                # 正常終了時
-                if response.status_code == 200:
-                    resp_body = json.loads(response.text)
-                    resp_cnt = len(resp_body["statuses"])
-
-                    # 収集結果が0件だったら終了
-                    if resp_cnt == 0:
-                        self._params["since_id"] = self._db.get_max_id()
-                        self._params["max_id"] = None
-                        break
-
-                    self._tweet_cnt += resp_cnt
-
-                    dt_head = self._to_datetime(resp_body['statuses'][0]['created_at'])
-                    dt_tail = self._to_datetime(resp_body['statuses'][-1]['created_at'])
-                    if dt_head != dt_tail:
-                        print("\r[GET] {}, rate: {} [tweet/h], total: {} [tweet]".format(
-                            dt_tail.strftime('%b %d %a %H:%M:%S'),
-                            int(100/((dt_head-dt_tail).total_seconds()/3600)),
-                            self._tweet_cnt
-                        ), end="")
-
-                    # 収集したうちで最も小さいid-1を、次の収集のmax_idにする
-                    self._params["max_id"] = resp_body["statuses"][-1]["id"] - 1
-
-                    # 収集したツイートをDBに追加
-                    self._db.insert_many(resp_body["statuses"])
-
-                # 異常終了
-                else:
-                    print(response)
-                    print(response.text)
-                    break
-
-            # rate limitに達したとき
-            else:
-                # resetまでの時間を取得して待つ（一応1秒長く待つ）
-                status = self._get_rate_limit_status()
-                wait_time = int(status["reset"] - time.time() + 1)
-
-                for i in tqdm.tqdm(range(wait_time), unit="", leave=False, desc="[WAITING]"):
-                    time.sleep(1)
-
-                status = self._get_rate_limit_status()
-                self._remaining = status["remaining"]
-
-        print("\n --FINISH--")
-
-
-    def __del__(self):
+    def _save_session(self):
         print(f"[TERMINATE] next_since_id: {self._params.get('since_id', None)}, next_max_id: {self._params.get('max_id', None)}")
         with open(self._sentinel_path, "wb") as f:
             pickle.dump({
                     "next_since_id": self._params.get("since_id", None),
                     "next_max_id": self._params.get("max_id", None)
             }, f)
+
+
+    def get_tweet(self):
+        print(f"[COLLECT] {self._collection_name} | id: {self._params['since_id']} ~ {self._params['max_id']}")
+        try:
+            while True:
+                if self._remaining > 0:
+                    response = self._get_response()
+                    self._remaining -= 1
+
+                    # 正常終了時
+                    if response.status_code == 200:
+                        resp_body = json.loads(response.text)
+                        resp_cnt = len(resp_body["statuses"])
+
+                        # 収集結果が0件だったら終了
+                        if resp_cnt == 0:
+                            self._params["since_id"] = self._db.get_max_id()
+                            self._params["max_id"] = None
+                            break
+
+                        self._tweet_cnt += resp_cnt
+
+                        dt_head = self._to_datetime(resp_body['statuses'][0]['created_at'])
+                        dt_tail = self._to_datetime(resp_body['statuses'][-1]['created_at'])
+                        if dt_head != dt_tail:
+                            print("\r[GET] {}, rate: {} [tweet/h], total: {} [tweet]".format(
+                                dt_tail.strftime('%b %d %a %H:%M:%S'),
+                                int(100/((dt_head-dt_tail).total_seconds()/3600)),
+                                self._tweet_cnt
+                            ), end="")
+
+                        # 収集したうちで最も小さいid-1を、次の収集のmax_idにする
+                        self._params["max_id"] = resp_body["statuses"][-1]["id"] - 1
+
+                        # 収集したツイートをDBに追加
+                        self._db.insert_many(resp_body["statuses"])
+
+                    # 異常終了
+                    else:
+                        print(response)
+                        print(response.text)
+                        break
+
+                # rate limitに達したとき
+                else:
+                    # resetまでの時間を取得して待つ（一応1秒長く待つ）
+                    status = self._get_rate_limit_status()
+                    wait_time = int(status["reset"] - time.time() + 1)
+
+                    for i in tqdm.tqdm(range(wait_time), unit="", leave=False, desc="[WAITING]"):
+                        time.sleep(1)
+
+                    status = self._get_rate_limit_status()
+                    self._remaining = status["remaining"]
+
+            # 終了時
+            self._save_session()
+            print("\n[FINISH]")
+
+        # 中断したとき
+        except:
+            print(f"[SUSPENDED]")
+            self._save_session()
+            raise
+
+    def __del__(self):
+        self._print_termination()
 
 
 def main():
