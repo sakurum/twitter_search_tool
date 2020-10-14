@@ -168,17 +168,17 @@ class TwitterAPI:
                     self._remaining = status["remaining"]
 
             # 終了時
-            self._save_session()
             print("\n[FINISH]")
+            self._save_session()
 
         # 中断したとき
         except:
-            print(f"[SUSPENDED]")
+            print("\n[SUSPENDED]")
             self._save_session()
             raise
 
     def __del__(self):
-        self._print_termination()
+        pass
 
 
 def main():
