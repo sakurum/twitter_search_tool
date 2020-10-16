@@ -76,7 +76,8 @@ class TwitterAPI:
         self._LIMIT = status["limit"]
         self._remaining = status["remaining"]
 
-        self._tweet_cnt = 0
+        self._get_cnt = 0
+        self._start_id = -1
 
 
     def _to_datetime(self, str):
@@ -115,6 +116,7 @@ class TwitterAPI:
     def get_tweet(self):
         print(f"[COLLECT] {self._collection_name} | id: {self._params['since_id']} ~ {self._params['max_id']}")
         try:
+
             while True:
                 if self._remaining > 0:
                     response = self._get_response()
@@ -122,6 +124,7 @@ class TwitterAPI:
 
                     # 正常終了時
                     if response.status_code == 200:
+                        self._get_cnt += 1
                         resp_body = json.loads(response.text)
                         resp_cnt = len(resp_body["statuses"])
 
@@ -131,16 +134,18 @@ class TwitterAPI:
                             self._params["max_id"] = None
                             break
 
-                        self._tweet_cnt += resp_cnt
+                        # 取得状況・残り時間を表示
+                        if self._start_id < 0:
+                            self._start_id = resp_body['statuses'][0]["id"]
 
                         dt_head = self._to_datetime(resp_body['statuses'][0]['created_at'])
                         dt_tail = self._to_datetime(resp_body['statuses'][-1]['created_at'])
                         if dt_head != dt_tail:
-                            print("\r[GET] {}, remain: {}[tweet], rate: {} [tweet/h], total: {} [tweet]".format(
+                            print("\r[GET] {}, remain: {}[min], rate: {} [tweet/h], total: {} [tweet]".format(
                                 dt_tail.strftime('%b %d %a %H:%M:%S'),
-                                (resp_body['statuses'][-1]['id']-self._params["since_id"]),
+                                int((resp_body['statuses'][-1]['id']-self._params["since_id"])/((self._start_id-resp_body['statuses'][-1]["id"])/self._get_cnt)*0.083333),
                                 int(resp_cnt/((dt_head-dt_tail).total_seconds()/3600)),
-                                self._tweet_cnt
+                                self._get_cnt*100
                             ), end="")
 
                         # 収集したうちで最も小さいid-1を、次の収集のmax_idにする
