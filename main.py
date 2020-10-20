@@ -78,6 +78,7 @@ class TwitterAPI:
 
         self._get_cnt = 0
         self._start_id = -1
+        self._rem_time = 0
 
 
     def _to_datetime(self, str):
@@ -140,10 +141,11 @@ class TwitterAPI:
 
                         dt_head = self._to_datetime(resp_body['statuses'][0]['created_at'])
                         dt_tail = self._to_datetime(resp_body['statuses'][-1]['created_at'])
+                        self._rem_time = int((resp_body['statuses'][-1]['id']-self._params["since_id"])/((self._start_id-resp_body['statuses'][-1]["id"])/self._get_cnt)*0.083333)
                         if dt_head != dt_tail:
-                            print("\r[GET] {}, remain: {}[min], rate: {} [tweet/h], total: {} [tweet]".format(
+                            print("\r[GET] {}, remain: {}, rate: {} [tweet/h], total: {} [tweet]".format(
                                 dt_tail.strftime('%b %d %a %H:%M:%S'),
-                                int((resp_body['statuses'][-1]['id']-self._params["since_id"])/((self._start_id-resp_body['statuses'][-1]["id"])/self._get_cnt)*0.083333),
+                                "{}h{}m".format(self._rem_time//60, self._rem_time%60),
                                 int(resp_cnt/((dt_head-dt_tail).total_seconds()/3600)),
                                 self._get_cnt*100
                             ), end="")
@@ -166,7 +168,7 @@ class TwitterAPI:
                     status = self._get_rate_limit_status()
                     wait_time = int(status["reset"] - time.time() + 1)
 
-                    for i in tqdm.tqdm(range(wait_time), unit="", leave=False, desc="[WAITING]"):
+                    for i in tqdm.tqdm(range(wait_time), unit="", leave=False, desc="[WAITING] remain {}h{}m".format(self._rem_time//60, self._rem_time%60)):
                         time.sleep(1)
 
                     status = self._get_rate_limit_status()
