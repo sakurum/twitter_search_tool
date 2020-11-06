@@ -150,6 +150,8 @@ class TwitterAPI:
                                 self._get_cnt*100
                             ), end="")
 
+                        print("\033[2K\033[G", end="")
+
                         # 収集したツイートをDBに追加
                         self._db.insert_many(resp_body["statuses"])
 
@@ -172,11 +174,8 @@ class TwitterAPI:
                         print("\r[WAITING..] remain: {}h{}m, restart: {}/{}[sec]".format(self._rem_time//60, self._rem_time%60, i+1, wait_time), end="")
                         time.sleep(1)
 
-                    print("\r", end="")
-                    """
-                    for i in tqdm.tqdm(range(wait_time), unit="", leave=False, desc="[WAITING] remain {}h{}m".format(self._rem_time//60, self._rem_time%60)):
-                        time.sleep(1)
-                    """
+                    print("\033[2K\033[G", end="")
+
                     status = self._get_rate_limit_status()
                     self._remaining = status["remaining"]
 
