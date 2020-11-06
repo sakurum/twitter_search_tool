@@ -180,13 +180,12 @@ class TwitterAPI:
                     self._remaining = status["remaining"]
 
             # 終了時
-            print("")
             self._save_session()
             print("[FINISH]")
 
         # 中断したとき
         except:
-            print("\n[SUSPENDED]")
+            print("[SUSPENDED]")
             self._save_session()
             raise
 
