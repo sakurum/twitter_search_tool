@@ -168,9 +168,15 @@ class TwitterAPI:
                     status = self._get_rate_limit_status()
                     wait_time = int(status["reset"] - time.time() + 1)
 
-                    for i in tqdm.tqdm(range(wait_time), unit="", leave=False, desc="[WAITING] remain {}h{}m".format(self._rem_time//60, self._rem_time%60)):
+                    for i in range(wait_time):
+                        print("\r[WAITING..] remain: {}h{}m, restart: {}/{}[sec]".format(self._rem_time//60, self._rem_time%60, i+1, wait_time), end="")
                         time.sleep(1)
 
+                    print("\r", end="")
+                    """
+                    for i in tqdm.tqdm(range(wait_time), unit="", leave=False, desc="[WAITING] remain {}h{}m".format(self._rem_time//60, self._rem_time%60)):
+                        time.sleep(1)
+                    """
                     status = self._get_rate_limit_status()
                     self._remaining = status["remaining"]
 
