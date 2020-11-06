@@ -150,11 +150,11 @@ class TwitterAPI:
                                 self._get_cnt*100
                             ), end="")
 
-                        # 収集したうちで最も小さいid-1を、次の収集のmax_idにする
-                        self._params["max_id"] = resp_body["statuses"][-1]["id"] - 1
-
                         # 収集したツイートをDBに追加
                         self._db.insert_many(resp_body["statuses"])
+
+                        # 収集したうちで最も小さいid-1を、次の収集のmax_idにする
+                        self._params["max_id"] = resp_body["statuses"][-1]["id"] - 1
 
                     # 異常終了
                     else:
